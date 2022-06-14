@@ -1,0 +1,14 @@
+receivers:    
+  jaeger:     
+    protocols:
+      grpc:
+exporters:
+  otlp:
+    endpoint: tempo:4317
+    insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [jaeger]
+      exporters: [otlp]
