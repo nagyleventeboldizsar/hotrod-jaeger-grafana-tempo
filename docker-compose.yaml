@@ -3,6 +3,8 @@ version: '3.8'
 services:
   grafana:
     image: grafana/grafana:8.5.6
+    networks:
+      - internet
     ports:
       - '3000:3000'
     volumes:
@@ -16,6 +18,8 @@ services:
 
   loki:
     image: grafana/loki:master
+    networks:
+      - internet
     ports:
       - '3100:3100'
     command: -config.file=/etc/loki/local-config.yaml
@@ -33,23 +37,21 @@ services:
 
   tempo:
     image: grafana/tempo:latest
+    networks:
+      - internet
+      - lognet
     command: ["-config.file=/etc/tempo.yaml" ]
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo.yaml
-    ports:
-      - "14268"  # jaeger ingest
-      - "3200"   # tempo
-      - "4317"  # otlp grpc
-      - "4318"  # otlp http
-      - "9411"   # zipkin
 
   otel-collector:
     image: otel/opentelemetry-collector:0.32.0
     command: ["--config=/etc/otel-collector-config.yaml"]
+    networks:
+      - internet
+      - lognet
     volumes:
       - ./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    ports:
-      - "14250"  # jaeger grpc
     logging:
       driver: loki
       options:
@@ -59,16 +61,19 @@ services:
 
 
   jaeger-agent:
-      image: jaegertracing/jaeger-agent
-      command: ["--reporter.grpc.host-port=otel-collector:14250"]
-      restart: on-failure
-      ports:
-        - "6831"
-      depends_on:
+    image: jaegertracing/jaeger-agent
+    networks:
+      - lognet
+    command: ["--reporter.grpc.host-port=otel-collector:14250"]
+    restart: on-failure
+    depends_on:
         - otel-collector
 
   hotrod:
     image: jaegertracing/example-hotrod:latest
+    networks:
+      - internet
+      - lognet
     ports:
       - '8080:8080'
       - '8083:8083'
@@ -93,3 +98,12 @@ services:
       driver: loki
       options:
         loki-url: 'http://localhost:3100/api/prom/push'
+networks:
+  default:
+    name: intranet
+    internal: true # restricts internet access
+  lognet:
+  internet:
+    driver: bridge
+
+
